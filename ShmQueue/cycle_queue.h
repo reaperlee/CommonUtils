@@ -5,6 +5,7 @@
 	wdd
 	2011-06
 */
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,15 +38,19 @@ struct cycle_queue* cycle_queue_init(unsigned char* mem, unsigned long sz);
 struct cycle_queue* cycle_queue_attach(unsigned char* mem, unsigned long sz);
 
 
-int cycle_enqueue(struct cycle_queue* q, const char* buf, int sz);
+int cycle_enqueue(struct cycle_queue* q, const char* buf, uint32_t sz);
 
-int cycle_dequeue(struct cycle_queue* q, char* outbuf, int* inoutsz);
+int cycle_dequeue(struct cycle_queue* q, char* outbuf, uint32_t* inoutsz);
 
-int cycle_queue_peek(struct cycle_queue* q, char* outbuf, int* inoutsz);
+int cycle_queue_peek(struct cycle_queue* q, char* outbuf, uint32_t* inoutsz);
 
 int cycle_queue_pop(struct cycle_queue* q);
 
-int cycle_queue_full(struct cycle_queue* q, int sz);
+int cycle_queue_full(struct cycle_queue* q, uint32_t sz);
+
+unsigned long cycle_queue_total_len(struct cycle_queue* q);
+
+unsigned long cycle_queue_used_len(struct cycle_queue* q);
 
 
 #ifdef __cplusplus

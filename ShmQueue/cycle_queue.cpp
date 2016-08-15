@@ -16,7 +16,6 @@
 
 
 
-//TODO:增加剩余长度的统计
 
 
 struct cycle_queue* cycle_queue_init(unsigned char* mem, unsigned long sz)
@@ -68,7 +67,7 @@ struct cycle_queue* cycle_queue_attach(unsigned char* mem, unsigned long sz)
 	return q;	
 }
 
-int cycle_enqueue(struct cycle_queue* q, const char* buf, int sz)
+int cycle_enqueue(struct cycle_queue* q, const char* buf, uint32_t sz)
 {
 	unsigned long len, pos;
 		
@@ -79,7 +78,7 @@ int cycle_enqueue(struct cycle_queue* q, const char* buf, int sz)
 		{
 			len = q->capacity;
 		}
-		if(len < (unsigned long)(sizeof(int)+sz+1))
+		if(len < (unsigned long)(sizeof(uint32_t)+sz+1))
 		{
 			/*full*/
 			return ERR_Q_FULL;
@@ -105,7 +104,7 @@ int cycle_enqueue(struct cycle_queue* q, const char* buf, int sz)
 
 		mb();
 
-		q->head = (q->head+sizeof(int)+sz)%q->capacity;
+		q->head = (q->head+sizeof(uint32_t)+sz)%q->capacity;
 
 		return 0;
 	}
@@ -113,9 +112,9 @@ int cycle_enqueue(struct cycle_queue* q, const char* buf, int sz)
 	return ERR_RET_VAL;
 }
 
-int cycle_dequeue(struct cycle_queue* q, char* outbuf, int* inoutsz)
+int cycle_dequeue(struct cycle_queue* q, char* outbuf, uint32_t* inoutsz)
 {
-	int sz;
+	uint32_t sz;
 	unsigned long pos, len;
 
 	if(q && outbuf && inoutsz)
@@ -150,7 +149,7 @@ int cycle_dequeue(struct cycle_queue* q, char* outbuf, int* inoutsz)
 			
 			mb();
 
-			q->tail = (q->tail+sizeof(int)+sz)%q->capacity;
+			q->tail = (q->tail+sizeof(uint32_t)+sz)%q->capacity;
 			return 0;
 		}
 		else
@@ -163,9 +162,9 @@ int cycle_dequeue(struct cycle_queue* q, char* outbuf, int* inoutsz)
 	return ERR_RET_VAL;
 }
 
-int cycle_queue_peek(struct cycle_queue* q, char* outbuf, int* inoutsz)
+int cycle_queue_peek(struct cycle_queue* q, char* outbuf, uint32_t* inoutsz)
 {
-	int sz;
+	uint32_t sz;
 	unsigned long pos, len;
 
 	if(q && outbuf && inoutsz)
@@ -212,7 +211,7 @@ int cycle_queue_peek(struct cycle_queue* q, char* outbuf, int* inoutsz)
 
 int cycle_queue_pop(struct cycle_queue* q)
 {
-	int sz;
+	uint32_t sz;
 
 	if(q)
 	{
@@ -235,7 +234,7 @@ int cycle_queue_pop(struct cycle_queue* q)
 	return ERR_RET_VAL;
 }
 
-int cycle_queue_full(struct cycle_queue* q, int sz)
+int cycle_queue_full(struct cycle_queue* q, uint32_t sz)
 {
 	if(q)
 	{
@@ -244,7 +243,7 @@ int cycle_queue_full(struct cycle_queue* q, int sz)
 		{
 			len = q->capacity;
 		}
-		if(len < (unsigned long)(sizeof(int)+sz+1))
+		if(len < (unsigned long)(sizeof(uint32_t)+sz+1))
 		{
 			/*full*/
 			return 1;
@@ -254,4 +253,23 @@ int cycle_queue_full(struct cycle_queue* q, int sz)
 	return 0;
 }
 
+unsigned long cycle_queue_total_len(struct cycle_queue* q)
+{
+	if(q){
+		return q->capacity;
+	}
+	return 0;
+}
+
+unsigned long cycle_queue_used_len(struct cycle_queue* q)
+{
+	if(q){
+		unsigned long freeLen=(q->tail-q->head+q->capacity)%q->capacity;
+		if(freeLen){
+			return q->capacity-freeLen;
+		}
+		return 0;
+	}
+	return 0;
+}
 

@@ -13,8 +13,8 @@ namespace francis_module{
 	const static int DEFAULT_SHM_OPEN_PERM=0660;
 	class CSysVShmException{
 	private:
-		std::string m_reason;
 		int m_code;
+		std::string m_reason;
 	public:
 		const static int CODE_INITED=-1;
 		const static int CODE_SHM_EXISTS=-2;

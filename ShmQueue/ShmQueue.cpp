@@ -12,9 +12,9 @@
 using namespace std;
 using namespace francis_module;
 
-#define _MODULE_DEBUG
 
-CShmQueue::CShmQueue():m_cycleQueue(NULL),m_shm(),m_readLock(),m_writeLock(),m_enableReadLock(false),m_enableWriteLock(false) {
+CShmQueue::CShmQueue():m_cycleQueue(NULL),m_shm(),m_readLock(),m_writeLock(),m_enableReadLock(false),m_enableWriteLock(false),m_errno(ERRNO_SUCCESS)
+{
 
 }
 
@@ -31,6 +31,7 @@ int CShmQueue::init(const char *ipcPath, size_t queueSize,bool enableReadLock,bo
 #ifdef _MODULE_DEBUG
 		fprintf(stderr,"Init Shm Failed:%s\n",e.why().c_str());
 #endif
+		m_errno=INIT_ERROR_SHM_FAILED;
 		return -1;
 	}
 
@@ -41,6 +42,7 @@ int CShmQueue::init(const char *ipcPath, size_t queueSize,bool enableReadLock,bo
 #ifdef _MODULE_DEBUG
 			fprintf(stderr,"Init Read Sem Failed:%s\n",e.why().c_str());
 #endif
+			m_errno=INIT_ERROR_RLOCK_SEM_FAILED;
 			return -2;
 		}
 	}
@@ -52,6 +54,7 @@ int CShmQueue::init(const char *ipcPath, size_t queueSize,bool enableReadLock,bo
 #ifdef _MODULE_DEBUG
 			fprintf(stderr,"Init Write Sem Failed:%s\n",e.why().c_str());
 #endif
+			m_errno=INIT_ERROR_WLOCK_SEM_FAILED;
 			return -3;
 		}
 	}
@@ -62,9 +65,11 @@ int CShmQueue::init(const char *ipcPath, size_t queueSize,bool enableReadLock,bo
 #ifdef _MODULE_DEBUG
 		fprintf(stderr,"Attach Cycle Queue Failed!\n");
 #endif
+		m_errno=INIT_ERROR_ATTACH_SHM_QUEUE;
 		return -3;
 	}
 
+	m_errno=ERRNO_SUCCESS;
 	return 0;
 }
 
@@ -78,6 +83,7 @@ int CShmQueue::open(const char *ipcPath, bool enableReadLock, bool enableWriteLo
 #ifdef _MODULE_DEBUG
 		fprintf(stderr,"Open ShareMem Failed:%s\n",e.why().c_str());
 #endif
+		m_errno=OPEN_ERROR_SHM_FAILED;
 		return -1;
 	}
 
@@ -88,6 +94,7 @@ int CShmQueue::open(const char *ipcPath, bool enableReadLock, bool enableWriteLo
 #ifdef _MODULE_DEBUG
 			fprintf(stderr,"Open ReadLock Sem Failed:%s\n",e.why().c_str());
 #endif
+			m_errno=OPEN_ERROR_RLOCK_SEM_FAILED;
 			return -2;
 
 		}
@@ -100,6 +107,7 @@ int CShmQueue::open(const char *ipcPath, bool enableReadLock, bool enableWriteLo
 #ifdef _MODULE_DEBUG
 			fprintf(stderr,"Open ReadLock Sem Failed:%s\n",e.why().c_str());
 #endif
+			m_errno=OPEN_ERROR_WLOCK_SEM_FAILED;
 			return -2;
 
 		}
@@ -110,15 +118,18 @@ int CShmQueue::open(const char *ipcPath, bool enableReadLock, bool enableWriteLo
 #ifdef _MODULE_DEBUG
 		fprintf(stderr,"Attach Cycle Queue Failed!\n");
 #endif
+		m_errno=OPEN_ERROR_ATTACH_SHM_QUEUE;
 		return -3;
 	}
 
+	m_errno=ERRNO_SUCCESS;
 	return 0;
 }
 
-int CShmQueue::enqueue(const char *data, size_t len) {
+int CShmQueue::enqueue(const char *data, uint32_t len) {
 	if(m_enableWriteLock){
 		if(m_writeLock.semP(false)<0){
+			m_errno=ENQUEUE_ERROR_TRY_LOCK;
 			return ENQUEUE_ERROR_TRY_LOCK;
 		}
 	}
@@ -128,46 +139,54 @@ int CShmQueue::enqueue(const char *data, size_t len) {
 		m_writeLock.semV();
 	}
 	if(ret>=0){
-		return 0;
+		m_errno=ERRNO_SUCCESS;
+		return ERRNO_SUCCESS;
 	}
 	else if(ret==ERR_Q_FULL){
+		m_errno=ENQUEUE_ERROR_FULL;
 		return ENQUEUE_ERROR_FULL;
 	}
 	else{
-		return ENQUEUE_ERROR_UNKNOWN;
 	}
+	m_errno=ENQUEUE_ERROR_UNKNOWN;
 	return ENQUEUE_ERROR_UNKNOWN;
 }
 
-int CShmQueue::dequeue(char *dataBuffer, size_t &bufferLen) {
+int CShmQueue::dequeue(char *dataBuffer, uint32_t &bufferLen) {
 	if(m_enableReadLock){
 		if(m_readLock.semP()<0){
+			m_errno=DEQUEUE_ERROR_TRY_LOCK;
 			return DEQUEUE_ERROR_TRY_LOCK;
 		}
 	}
 
-	int len=(int)bufferLen;
-	int ret=cycle_dequeue(m_cycleQueue,dataBuffer,&len);
+	int ret=cycle_dequeue(m_cycleQueue,dataBuffer,&bufferLen);
 	if(m_enableReadLock){
 		m_readLock.semV();
 	}
 
-	if(ret>=0){
-		return 0;
+	if(ret==0){
+		m_errno=ERRNO_SUCCESS;
+		return ERRNO_SUCCESS;
 	}
 	else if(ret==ERR_Q_EMPTY){
 		bufferLen=0;
+		m_errno=DEQUEUE_ERROR_EMPTY;
 		return DEQUEUE_ERROR_EMPTY;
 	}
 	else if(ret==ERR_BUF_INSUFF){
-		bufferLen=(size_t)len;
+		m_errno=DEQUEUE_ERROR_INSUFBUF;
 		return DEQUEUE_ERROR_INSUFBUF;
 	}
 	else{
 		bufferLen=0;
-		return DEQUEUE_ERROR_UNKNOWN;
 	}
+	m_errno=DEQUEUE_ERROR_UNKNOWN;
 	return DEQUEUE_ERROR_UNKNOWN;
+}
+
+void CShmQueue::pop() {
+	cycle_queue_pop(m_cycleQueue);
 }
 
 
