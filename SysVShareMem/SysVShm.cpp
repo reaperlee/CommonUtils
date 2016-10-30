@@ -14,6 +14,9 @@
 #include <sys/shm.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <assert.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 using namespace std;
 using namespace francis_module;
@@ -98,7 +101,6 @@ int CSysVShm::attach() throw(CSysVShmException){
 		snprintf(msgBuffer,sizeof(msgBuffer)-1,"%s:shmat failed:%s(errno=%d)",__FUNCTION__,strerror(errno),errno);
 		throw CSysVShmException(CSysVShmException::CODE_ATTACH_SHM_FAIL,msgBuffer);
 	}
-
 	return 0;
 }
 
@@ -116,7 +118,22 @@ int CSysVShm::detach() throw(CSysVShmException){
 	return 0;
 }
 
+int CSysVShm::remove() throw(CSysVShmException){
+	char msgBuffer[512]={0};
+	if(m_shmID<0){
+		snprintf(msgBuffer,sizeof(msgBuffer)-1,"%s:shm not inited yet!",__FUNCTION__);
+		throw CSysVShmException(CSysVShmException::CODE_NOT_INITED,msgBuffer);
+	}
+
+	if(shmctl(m_shmID,IPC_RMID,NULL)<0){
+		snprintf(msgBuffer,sizeof(msgBuffer)-1,"%s:shmctl(IPC_RMID) failed:%s(errno=%d)",__FUNCTION__,strerror(errno),errno);
+		throw CSysVShmException(CSysVShmException::CODE_CTL_RMID_FAIL,msgBuffer);
+	}
+	return 0;
+}
+
 int CSysVShm::init(const char *ipcPath, int magic, size_t size) throw(CSysVShmException){
+	int isCreate=0;
 	char msgBuffer[512]={0};
 	key_t shmKey=ftok(ipcPath,magic);
 	if(shmKey<0){
@@ -126,6 +143,7 @@ int CSysVShm::init(const char *ipcPath, int magic, size_t size) throw(CSysVShmEx
 
 	try{
 		this->createShm(shmKey,size);
+		isCreate=1;
 	}catch(CSysVShmException& e){
 		if(e.errCode()!=CSysVShmException::CODE_SHM_EXISTS){
 			throw e;
@@ -133,7 +151,7 @@ int CSysVShm::init(const char *ipcPath, int magic, size_t size) throw(CSysVShmEx
 		this->openShm(shmKey);
 	}
 
-	return 0;
+	return isCreate;
 }
 
 int CSysVShm::onlyOpen(const char *ipcPath, int magic) throw(CSysVShmException){
@@ -145,5 +163,36 @@ int CSysVShm::onlyOpen(const char *ipcPath, int magic) throw(CSysVShmException){
 	}
 
 	this->openShm(shmKey);
+	return 0;
+}
+
+int CSysVShm::deleteShm(const char *ipcPath, int magic) throw(CSysVShmException){
+	try{
+		this->onlyOpen(ipcPath,magic);
+	}catch(CSysVShmException& e){
+		throw e;
+	}
+
+	this->remove();
+	return 0;
+}
+
+int CSysVShm::setMemLock() {
+	assert(m_shmID>0);
+	char msgBuffer[512]={0};
+
+	struct rlimit limit;
+	limit.rlim_cur=RLIM_INFINITY;
+	limit.rlim_max=limit.rlim_cur;
+	if(setrlimit(RLIMIT_MEMLOCK,&limit)<0){
+		snprintf(msgBuffer,sizeof(msgBuffer)-1,"%s:setrlimit(memlock) failed:%s(errno=%d)",__FUNCTION__,strerror(errno),errno);
+		throw CSysVShmException(CSysVShmException::CODE_CTL_MEMLOCK_FAIL,msgBuffer);
+	}
+
+	if(shmctl(m_shmID,SHM_LOCK,0)<0){
+		snprintf(msgBuffer,sizeof(msgBuffer)-1,"%s:shmctl(memlock) failed:%s(errno=%d)",__FUNCTION__,strerror(errno),errno);
+		throw CSysVShmException(CSysVShmException::CODE_CTL_MEMLOCK_FAIL,msgBuffer);
+	}
+
 	return 0;
 }

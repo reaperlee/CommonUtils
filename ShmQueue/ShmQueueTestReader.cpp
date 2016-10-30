@@ -43,7 +43,7 @@ int main(int argc,char* argv[]){
 	}
 	while(1){
 		time_t currentTS=time(NULL);
-		size_t dataLen=bufferLen;
+		uint32_t dataLen=(uint32_t)bufferLen;
 		for(int i=0;i<1000;i++){
 			ret=shmQueue.dequeue(buffer,dataLen);
 			dequeueTotalCnt++;
