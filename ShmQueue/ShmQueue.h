@@ -25,7 +25,7 @@ namespace francis_module{
 			StShmQueueHeader* shmHeader;
 			struct cycle_queue* cycleQueue;
 		}StShmQueueEntry;
-#pragma
+#pragma pack()
 
 		StShmQueueEntry* m_shmQueueEntry;
 		CSysVShm m_shm;

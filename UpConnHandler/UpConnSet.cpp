@@ -2,8 +2,8 @@
 // Created by 李兴 on 16/5/8.
 //
 #include "UpConnSet.h"
-#include "ccd/tfc_net_socket_tcp.h"
-#include "ccd/tfc_net_socket_udp.h"
+#include "tfc_net_socket_tcp.h"
+#include "tfc_net_socket_udp.h"
 
 #ifdef _USE_FASTMEM
 #include "fastmem.h"
